@@ -1,0 +1,9 @@
+# OTC Semgrep Configuration
+# Copy this entire .semgrep/ directory to any project root
+# Run locally: semgrep --config .semgrep/
+# Run in CI: semgrep ci --config .semgrep/
+#
+# Semgrep auto-discovers all .yaml files in the directory.
+# This file serves as documentation only.
+
+rules: []

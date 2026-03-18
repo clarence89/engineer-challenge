@@ -1,28 +1,19 @@
 rules:
   # UI-001: Double Submit — async handler without immediate disable
   # Severity: CRITICAL | Seen in: 15+ projects
+  # NOTE: JSX onClick patterns are hard to express in Semgrep.
+  # Using regex-based detection as a pragmatic alternative.
   - id: otc-ui-double-submit
-    patterns:
-      - pattern: |
-          onClick={async ($EVENT) => {
-            ...
-            await $EXPR
-            ...
-          }}
-      - pattern-not: |
-          onClick={async ($EVENT) => {
-            ...
-            $SET(true)
-            ...
-            await $EXPR
-            ...
-          }}
+    pattern-regex: "onClick=\\{\\s*async"
     message: >
-      OTC-UI-001: Async onClick handler without immediate loading/disable state.
-      Set loading state or disable button BEFORE the await to prevent double-submit.
+      OTC-UI-001: Async onClick handler detected. Verify that loading/disable state
+      is set BEFORE the await to prevent double-submit.
       This has caused duplicate records in 15+ production projects.
-    severity: WARNING
+    severity: INFO
     languages: [typescript, javascript]
+    paths:
+      include:
+        - "**/*.tsx"
     metadata:
       category: race-condition
       otc-pattern: UI-001

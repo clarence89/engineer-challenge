@@ -31,19 +31,18 @@ rules:
   # CRON-003: Status set to "processing" without timeout recovery
   # Severity: HIGH | Seen in: 8+ projects
   - id: otc-cron-stuck-processing
-    patterns:
-      - pattern-either:
-          - pattern: |
-              .update({ ..., status: "processing", ... })
-          - pattern: |
-              .update({ ..., status: 'processing', ... })
-      - pattern-not-regex: "(timeout|recover|stale|stuck|reset.*processing)"
+    pattern-regex: "status.*['\"]processing['\"]"
     message: >
-      OTC-CRON-003: Status set to "processing" without visible timeout recovery.
+      OTC-CRON-003: Status set to "processing" — ensure timeout recovery exists.
       If this job crashes mid-execution, items will be stuck in "processing" forever.
       Add a timeout recovery mechanism or cleanup job.
     severity: WARNING
     languages: [typescript, javascript]
+    paths:
+      include:
+        - "**/cron/**"
+        - "**/schedule/**"
+        - "**/jobs/**"
     metadata:
       category: reliability
       otc-pattern: CRON-003

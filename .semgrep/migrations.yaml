@@ -38,13 +38,15 @@ rules:
       category: data-safety
 
   # Migration without comment header
+  # NOTE: Semgrep requires at least one positive term. Using CREATE/ALTER/DROP
+  # as the positive match + checking that a comment header exists nearby.
   - id: otc-migration-no-comment-header
     patterns:
-      - pattern-not-regex: "^\\s*--"
+      - pattern-regex: "(CREATE TABLE|ALTER TABLE|DROP TABLE)"
+      - pattern-not-regex: "^\\s*--.*\\n.*\\n.*(CREATE|ALTER|DROP)"
     message: >
-      OTC: Migration file without comment header. Every migration must start
-      with a comment explaining WHAT it does and WHY. Future-you debugging
-      at 2 AM needs this.
+      OTC: Migration with schema changes should have a comment header explaining
+      WHAT it does and WHY. Future-you debugging at 2 AM needs this.
     severity: INFO
     languages: [generic]
     paths:
