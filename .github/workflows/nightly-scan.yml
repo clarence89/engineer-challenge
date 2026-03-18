@@ -1,0 +1,63 @@
+# OTC Nightly Scan — runs every night at 1 AM EST (6 AM UTC)
+# Scans FULL codebase (not just PR diffs)
+# Findings go to Semgrep dashboard + GitHub Issues for CRITICAL
+# Copy to: .github/workflows/nightly-scan.yml
+
+name: Nightly Quality Scan
+on:
+  schedule:
+    - cron: '0 6 * * *'  # 6 AM UTC = 1 AM EST
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  semgrep-full:
+    name: Semgrep Full Codebase Scan
+    runs-on: ubuntu-latest
+    container:
+      image: semgrep/semgrep
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Semgrep with OTC custom rules + defaults
+        run: semgrep ci --config .semgrep/ --config p/default --config p/security-audit
+        env:
+          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+
+  dependency-audit:
+    name: Dependency Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - name: Audit dependencies
+        run: npm audit --audit-level=high || true
+      - name: Check for critical vulnerabilities
+        run: |
+          CRITICAL=$(npm audit --json 2>/dev/null | jq '.metadata.vulnerabilities.critical // 0')
+          HIGH=$(npm audit --json 2>/dev/null | jq '.metadata.vulnerabilities.high // 0')
+          echo "Critical: $CRITICAL, High: $HIGH"
+          if [ "$CRITICAL" -gt 0 ]; then
+            echo "::error::$CRITICAL critical dependency vulnerabilities found"
+          fi
+
+  supabase-lint:
+    name: Supabase Database Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Lint migrations
+        run: supabase db lint --fail-on warning --schema public || true
+      - name: Check for migration files without RLS
+        run: |
+          # Find CREATE TABLE without ENABLE ROW LEVEL SECURITY in same file
+          for f in supabase/migrations/*.sql; do
+            if [ -f "$f" ] && grep -q "CREATE TABLE" "$f" && ! grep -q "ENABLE ROW LEVEL SECURITY\|NO-RLS" "$f"; then
+              echo "::warning file=$f::CREATE TABLE without RLS detected"
+            fi
+          done

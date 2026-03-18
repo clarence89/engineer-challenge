@@ -1,0 +1,55 @@
+rules:
+  # Environment variable without fallback
+  # Seen in: many projects
+  - id: otc-env-no-fallback
+    pattern: process.env.$VAR
+    message: >
+      OTC: process.env usage detected. Ensure this variable has a fallback
+      value or build-time validation. Missing env vars in production cause
+      silent failures or crashes. Check that it's in .env.example and Vercel env settings.
+    severity: INFO
+    languages: [typescript, javascript]
+    paths:
+      exclude:
+        - "**/env.*"
+        - "**/.env*"
+        - "**/config.*"
+        - "**/next.config.*"
+    metadata:
+      category: reliability
+
+  # DATA-003: Timezone bug — date string splitting
+  # Severity: MEDIUM | Seen in: 10+ projects
+  - id: otc-data-timezone-split
+    pattern-either:
+      - pattern: new Date().toISOString().split("T")[0]
+      - pattern: new Date().toISOString().split('T')[0]
+    message: >
+      OTC-DATA-003: Date string split strips timezone info. Near midnight UTC,
+      this returns the wrong date for users in other timezones. Store as
+      timestamptz, convert to local only for display.
+    severity: WARNING
+    languages: [typescript, javascript]
+    metadata:
+      category: data-integrity
+      otc-pattern: DATA-003
+
+  # UX-001: Generic error messages
+  # Severity: MEDIUM | Seen in: 12+ projects
+  - id: otc-ux-generic-error-message
+    pattern-either:
+      - pattern: $TOAST("Something went wrong")
+      - pattern: $TOAST("An error occurred")
+      - pattern: $TOAST("Error!")
+      - pattern: |
+          toast.error("Something went wrong")
+      - pattern: |
+          toast.error("An error occurred")
+    message: >
+      OTC-UX-001: Generic error message. Error messages must say: what happened,
+      why, and what the user can do about it. Different errors need different messages.
+    severity: INFO
+    languages: [typescript, javascript]
+    metadata:
+      category: ux
+      otc-pattern: UX-001

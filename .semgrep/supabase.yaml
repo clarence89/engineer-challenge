@@ -1,0 +1,67 @@
+rules:
+  # API-002: Missing Error Destructure
+  # Severity: HIGH | Seen in: 25+ projects
+  # Supabase query result not destructured — code uses data assuming success
+  - id: otc-supabase-missing-error-check
+    patterns:
+      - pattern: |
+          const { data } = await $CLIENT.from($TABLE).$METHOD(...)
+      - pattern-not: |
+          const { data, error } = await $CLIENT.from($TABLE).$METHOD(...)
+    message: >
+      OTC-API-002: Supabase query missing error destructure.
+      Must use `const { data, error } = await ...` and check error before using data.
+      This has caused silent failures in 25+ production projects.
+    severity: ERROR
+    languages: [typescript, javascript]
+    metadata:
+      category: error-handling
+      otc-pattern: API-002
+
+  # Detect .single() usage (should be .maybeSingle() for lookups)
+  # Hook-enforced locally, but Semgrep catches it across all repos
+  - id: otc-supabase-bare-single
+    pattern: $CLIENT.from($TABLE).$METHOD(...).single()
+    message: >
+      OTC: Use .maybeSingle() instead of .single() for lookups where zero rows
+      is valid. .single() throws on zero rows — that's a crash, not a feature.
+    severity: WARNING
+    languages: [typescript, javascript]
+    metadata:
+      category: error-handling
+
+  # API-001: Unbounded Query Results
+  # Severity: HIGH | Seen in: 20+ projects
+  - id: otc-supabase-unbounded-select
+    patterns:
+      - pattern: $CLIENT.from($TABLE).select($COLS)
+      - pattern-not: $CLIENT.from($TABLE).select($COLS).$CHAIN(...)
+    message: >
+      OTC-API-001: Unbounded query — .select() without .limit(), .range(), or
+      further chaining. Works with 10 rows, crashes with 10,000.
+      Every list query MUST have .limit() or .range().
+    severity: WARNING
+    languages: [typescript, javascript]
+    metadata:
+      category: data-safety
+      otc-pattern: API-001
+
+  # AUTH-001 / CRON-002: Soft-Delete Data Leak
+  # Severity: CRITICAL | Seen in: 9+ projects
+  # Note: This rule catches .from('table').select() without deleted_at filter.
+  # It fires on ALL tables — you allowlist tables that don't have deleted_at
+  # by adding `# semgrep: otc-soft-delete-ok` on the line.
+  - id: otc-supabase-soft-delete-missing
+    patterns:
+      - pattern: $CLIENT.from($TABLE).select(...)
+      - pattern-not-regex: "deleted_at"
+    message: >
+      OTC-AUTH-001: Query on table without deleted_at filter. If this table
+      has soft-delete, deleted records will leak into results.
+      Add .eq('deleted_at', null) or .is('deleted_at', null).
+      If this table has no deleted_at column, add `// otc-soft-delete-ok` comment.
+    severity: WARNING
+    languages: [typescript, javascript]
+    metadata:
+      category: data-leak
+      otc-pattern: AUTH-001

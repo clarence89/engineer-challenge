@@ -1,0 +1,55 @@
+rules:
+  # CREATE TABLE without RLS in same migration
+  # Our hook catches this locally; Semgrep catches it across all repos
+  - id: otc-migration-create-table-no-rls
+    patterns:
+      - pattern-regex: "CREATE TABLE"
+      - pattern-not-regex: "(ENABLE ROW LEVEL SECURITY|ALTER TABLE.*ENABLE ROW LEVEL|NO-RLS)"
+    message: >
+      OTC: CREATE TABLE without enabling RLS in the same migration.
+      A table without RLS means any authenticated user can read ALL rows.
+      Add: ALTER TABLE table_name ENABLE ROW LEVEL SECURITY;
+      If intentional, add `-- NO-RLS: reason` comment.
+    severity: ERROR
+    languages: [generic]
+    paths:
+      include:
+        - "**/migrations/**"
+        - "**/supabase/migrations/**"
+    metadata:
+      category: security
+
+  # DROP COLUMN without rollback documentation
+  - id: otc-migration-drop-column-no-rollback
+    patterns:
+      - pattern-regex: "DROP COLUMN"
+      - pattern-not-regex: "(ROLLBACK|rollback|down migration|reversible)"
+    message: >
+      OTC: DROP COLUMN without rollback documentation. Never drop a column
+      in a single migration. Document rollback SQL or explain why it's irreversible.
+      Add: `-- ROLLBACK: ALTER TABLE ... ADD COLUMN ...`
+    severity: WARNING
+    languages: [generic]
+    paths:
+      include:
+        - "**/migrations/**"
+        - "**/supabase/migrations/**"
+    metadata:
+      category: data-safety
+
+  # Migration without comment header
+  - id: otc-migration-no-comment-header
+    patterns:
+      - pattern-not-regex: "^\\s*--"
+    message: >
+      OTC: Migration file without comment header. Every migration must start
+      with a comment explaining WHAT it does and WHY. Future-you debugging
+      at 2 AM needs this.
+    severity: INFO
+    languages: [generic]
+    paths:
+      include:
+        - "**/migrations/**"
+        - "**/supabase/migrations/**"
+    metadata:
+      category: documentation

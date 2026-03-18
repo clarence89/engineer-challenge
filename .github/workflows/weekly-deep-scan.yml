@@ -1,0 +1,84 @@
+# OTC Weekly Deep Scan — runs Monday 3 AM EST (8 AM UTC)
+# Comprehensive analysis: security audit + supply chain + dead code
+# Copy to: .github/workflows/weekly-deep-scan.yml
+
+name: Weekly Deep Scan
+on:
+  schedule:
+    - cron: '0 8 * * 1'  # Monday 8 AM UTC = 3 AM EST
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  semgrep-security-audit:
+    name: Semgrep Security Audit (Full)
+    runs-on: ubuntu-latest
+    container:
+      image: semgrep/semgrep
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run comprehensive security scan
+        run: |
+          semgrep ci \
+            --config .semgrep/ \
+            --config p/default \
+            --config p/security-audit \
+            --config p/secrets \
+            --config p/owasp-top-ten \
+            --config p/react \
+            --config p/nextjs
+        env:
+          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+
+  supply-chain:
+    name: Supply Chain Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - name: Full dependency audit
+        run: |
+          echo "## Dependency Audit Report" > /tmp/dep-report.md
+          echo "**Date:** $(date -u +%Y-%m-%d)" >> /tmp/dep-report.md
+          echo "" >> /tmp/dep-report.md
+          npm audit --json 2>/dev/null | jq -r '
+            "### Summary\n" +
+            "- Critical: \(.metadata.vulnerabilities.critical // 0)\n" +
+            "- High: \(.metadata.vulnerabilities.high // 0)\n" +
+            "- Moderate: \(.metadata.vulnerabilities.moderate // 0)\n" +
+            "- Low: \(.metadata.vulnerabilities.low // 0)\n" +
+            "- Total dependencies: \(.metadata.totalDependencies // 0)"
+          ' >> /tmp/dep-report.md || echo "Could not parse audit JSON" >> /tmp/dep-report.md
+          cat /tmp/dep-report.md
+      - name: Check for outdated packages
+        run: npm outdated || true
+
+  typecheck-full:
+    name: Full TypeScript Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - run: npx tsc --noEmit
+
+  dead-code:
+    name: Dead Code Detection
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - name: Find unused exports
+        run: |
+          # knip finds unused files, exports, and dependencies
+          npx knip --no-exit-code || echo "knip not configured — skipping"

@@ -1,0 +1,80 @@
+rules:
+  # UI-001: Double Submit — async handler without immediate disable
+  # Severity: CRITICAL | Seen in: 15+ projects
+  - id: otc-ui-double-submit
+    patterns:
+      - pattern: |
+          onClick={async ($EVENT) => {
+            ...
+            await $EXPR
+            ...
+          }}
+      - pattern-not: |
+          onClick={async ($EVENT) => {
+            ...
+            $SET(true)
+            ...
+            await $EXPR
+            ...
+          }}
+    message: >
+      OTC-UI-001: Async onClick handler without immediate loading/disable state.
+      Set loading state or disable button BEFORE the await to prevent double-submit.
+      This has caused duplicate records in 15+ production projects.
+    severity: WARNING
+    languages: [typescript, javascript]
+    metadata:
+      category: race-condition
+      otc-pattern: UI-001
+
+  # UI-004: Missing Loading States — await without loading indicator
+  # Severity: MEDIUM | Seen in: 10+ projects
+  - id: otc-ui-missing-loading-state
+    patterns:
+      - pattern: |
+          const $HANDLER = async () => {
+            await $EXPR
+            ...
+          }
+      - pattern-not: |
+          const $HANDLER = async () => {
+            ...
+            $SETLOADING(...)
+            ...
+            await $EXPR
+            ...
+          }
+    message: >
+      OTC-UI-004: Async function handler without loading state.
+      Always set loading state before async operations to provide user feedback.
+    severity: INFO
+    languages: [typescript, javascript]
+    metadata:
+      category: ux
+      otc-pattern: UI-004
+
+  # UI-005: .map() without empty check
+  # Severity: MEDIUM | Seen in: 8+ projects
+  - id: otc-ui-map-without-empty-check
+    patterns:
+      - pattern: |
+          {$DATA.map((...) =>
+            ...
+          )}
+      - pattern-not: |
+          {$DATA.length > 0 && $DATA.map((...) =>
+            ...
+          )}
+      - pattern-not: |
+          {$DATA?.length ? $DATA.map((...) =>
+            ...
+          ) : ...}
+    message: >
+      OTC-UI-005: .map() on data array without empty state handling.
+      New users and empty tenants will see broken layouts instead of helpful empty states.
+      Add an explicit empty state check before mapping.
+    severity: INFO
+    languages: [typescript, javascript]
+    metadata:
+      category: ux
+      otc-pattern: UI-005

@@ -1,0 +1,91 @@
+rules:
+  # API-003: Missing UUID Validation
+  # Severity: HIGH | Seen in: 15+ projects
+  - id: otc-api-missing-uuid-validation
+    patterns:
+      - pattern: |
+          const { $PARAM } = $REQ.params
+          ...
+          .eq('id', $PARAM)
+      - pattern-not: |
+          const { $PARAM } = $REQ.params
+          ...
+          validateUUID(...)
+          ...
+          .eq('id', $PARAM)
+    message: >
+      OTC-API-003: Dynamic route param used in DB query without UUID validation.
+      Non-UUID input causes raw Postgres errors. Use validateUUID() first.
+    severity: WARNING
+    languages: [typescript, javascript]
+    metadata:
+      category: input-validation
+      otc-pattern: API-003
+
+  # API-004: Missing Zod Validation on request body
+  # Severity: HIGH | Seen in: 18+ projects
+  - id: otc-api-missing-zod-validation
+    patterns:
+      - pattern: |
+          const $BODY = await $REQ.json()
+      - pattern-not-regex: "z\\.|parse|safeParse|schema"
+    message: >
+      OTC-API-004: Request body used without Zod validation.
+      Every POST/PUT/PATCH must validate with Zod schema.
+      Use: `const body = schema.parse(await req.json())`
+    severity: WARNING
+    languages: [typescript, javascript]
+    metadata:
+      category: input-validation
+      otc-pattern: API-004
+
+  # API-005: N+1 Query — Supabase query inside a loop
+  # Severity: MEDIUM | Seen in: 10+ projects
+  - id: otc-api-n-plus-one-query
+    patterns:
+      - pattern-either:
+          - pattern: |
+              for (...) {
+                ...
+                $CLIENT.from(...).$METHOD(...)
+                ...
+              }
+          - pattern: |
+              $ARR.forEach((...) => {
+                ...
+                $CLIENT.from(...).$METHOD(...)
+                ...
+              })
+          - pattern: |
+              $ARR.map((...) => {
+                ...
+                $CLIENT.from(...).$METHOD(...)
+                ...
+              })
+    message: >
+      OTC-API-005: Supabase query inside a loop — N+1 query pattern.
+      Use .in() filter, joins, or batch queries instead. Never query inside a loop.
+    severity: WARNING
+    languages: [typescript, javascript]
+    metadata:
+      category: performance
+      otc-pattern: API-005
+
+  # AUTH-003: Auth endpoint without rate limiting
+  # Severity: HIGH | Seen in: 7+ projects
+  - id: otc-api-auth-no-rate-limit
+    patterns:
+      - pattern-regex: "(login|signin|signup|register|reset|forgot)"
+      - pattern-not-regex: "(arcjet|rateLimit|rateLimiter|withRateLimit)"
+    message: >
+      OTC-AUTH-003: Auth-related route without rate limiting.
+      All auth endpoints must have Arcjet or rate limiting middleware.
+      Rate limit BEFORE auth check, never after.
+    severity: WARNING
+    languages: [typescript, javascript]
+    paths:
+      include:
+        - "**/api/**"
+    metadata:
+      category: security
+      otc-pattern: AUTH-003

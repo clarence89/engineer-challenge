@@ -1,0 +1,58 @@
+# OTC Quality Gate — runs on every PR
+# Blocks merge if checks fail (requires branch protection)
+# Copy to: .github/workflows/quality-gate.yml
+
+name: Quality Gate
+on:
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  typecheck:
+    name: TypeScript Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - run: npx tsc --noEmit
+
+  tests:
+    name: Test Suite
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm test -- --passWithNoTests
+        env:
+          NODE_ENV: test
+
+  semgrep:
+    name: Semgrep Code Scan
+    runs-on: ubuntu-latest
+    container:
+      image: semgrep/semgrep
+    steps:
+      - uses: actions/checkout@v4
+      - run: semgrep ci --config .semgrep/ --config p/default
+        env:
+          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+
+  supabase-lint:
+    name: Supabase Migration Lint
+    runs-on: ubuntu-latest
+    # Only run if migrations changed
+    if: contains(github.event.pull_request.changed_files, 'supabase/migrations')
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - run: supabase db lint --fail-on warning --schema public

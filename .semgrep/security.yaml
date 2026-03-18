@@ -1,0 +1,102 @@
+rules:
+  # Bare `as any` without justification comment
+  # Hook-enforced locally, Semgrep catches it across all repos
+  - id: otc-bare-type-cast
+    pattern-regex: "as any(?!.*//)"
+    message: >
+      OTC: Bare `as any` without justification comment. Add an inline //
+      comment explaining why the cast is needed. After any cast on a Supabase
+      query, the NEXT line must destructure and check { data, error }.
+    severity: WARNING
+    languages: [typescript]
+    metadata:
+      category: type-safety
+
+  # console.log left in production code
+  - id: otc-console-log-in-production
+    pattern: console.log(...)
+    message: >
+      OTC: console.log() left in code. Use structured logging (Axiom) for
+      production logging. Remove console.log before committing.
+    severity: INFO
+    languages: [typescript, javascript]
+    paths:
+      exclude:
+        - "**/*.test.*"
+        - "**/*.spec.*"
+        - "**/scripts/**"
+        - "**/seed.*"
+    metadata:
+      category: code-quality
+
+  # AUTH-002: Client-side only role check without server enforcement
+  # Severity: CRITICAL | Seen in: 6+ projects
+  - id: otc-auth-client-only-role-check
+    patterns:
+      - pattern-either:
+          - pattern: |
+              if ($USER.role === "admin") { ... }
+          - pattern: |
+              $USER.role === "admin" ? ... : ...
+          - pattern: |
+              {$IS_ADMIN && ...}
+    message: >
+      OTC-AUTH-002: Client-side role check detected. Client-side checks are
+      UX only, not security. Verify that matching server-side enforcement
+      exists (RLS policy or middleware). Cached permissions after role change
+      have caused security bypasses in 6+ projects.
+    severity: INFO
+    languages: [typescript, javascript]
+    paths:
+      include:
+        - "**/*.tsx"
+        - "**/components/**"
+        - "**/app/**"
+      exclude:
+        - "**/api/**"
+        - "**/middleware.*"
+    metadata:
+      category: security
+      otc-pattern: AUTH-002
+
+  # AUTH-004: Invite/share handler without revocation check
+  # Severity: HIGH | Seen in: 5+ projects
+  - id: otc-auth-invite-no-revocation-check
+    patterns:
+      - pattern-regex: "(invite|share.*token|access.*link|magic.*link)"
+      - pattern-not-regex: "(revoked|expired|expires|valid)"
+    message: >
+      OTC-AUTH-004: Invite/share handler without revocation or expiry check.
+      Always check revocation AND expiry at redemption time, not just existence.
+    severity: WARNING
+    languages: [typescript, javascript]
+    paths:
+      include:
+        - "**/api/**"
+    metadata:
+      category: security
+      otc-pattern: AUTH-004
+
+  # DATA-002: parseFloat for money
+  # Severity: MEDIUM | Seen in: 5+ projects
+  - id: otc-data-float-for-money
+    patterns:
+      - pattern-either:
+          - pattern: parseFloat($AMT)
+          - pattern: Number($AMT)
+    message: >
+      OTC-DATA-002: Potential floating point usage for financial amounts.
+      Store money as integer cents. Use Decimal or bigint for precision.
+      0.1 + 0.2 !== 0.3 in JavaScript.
+    severity: INFO
+    languages: [typescript, javascript]
+    paths:
+      include:
+        - "**/*invoice*"
+        - "**/*payment*"
+        - "**/*billing*"
+        - "**/*price*"
+        - "**/*amount*"
+    metadata:
+      category: data-integrity
+      otc-pattern: DATA-002

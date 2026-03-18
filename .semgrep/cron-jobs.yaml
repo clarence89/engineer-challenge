@@ -1,0 +1,49 @@
+rules:
+  # CRON-001: Missing Idempotency — cron handler without lock
+  # Severity: HIGH | Seen in: 7+ projects
+  - id: otc-cron-missing-idempotency
+    patterns:
+      - pattern-either:
+          - pattern: |
+              export async function GET($REQ) {
+                ...
+              }
+          - pattern: |
+              export async function POST($REQ) {
+                ...
+              }
+      - pattern-not-regex: "(advisory_lock|idempotency|already.*processing|lock|mutex|dedupe)"
+    message: >
+      OTC-CRON-001: Cron/scheduled handler without idempotency protection.
+      What happens if this runs twice concurrently? Add advisory locks,
+      idempotency keys, or "processing" status checks.
+    severity: WARNING
+    languages: [typescript, javascript]
+    paths:
+      include:
+        - "**/cron/**"
+        - "**/schedule/**"
+        - "**/jobs/**"
+    metadata:
+      category: reliability
+      otc-pattern: CRON-001
+
+  # CRON-003: Status set to "processing" without timeout recovery
+  # Severity: HIGH | Seen in: 8+ projects
+  - id: otc-cron-stuck-processing
+    patterns:
+      - pattern-either:
+          - pattern: |
+              .update({ ..., status: "processing", ... })
+          - pattern: |
+              .update({ ..., status: 'processing', ... })
+      - pattern-not-regex: "(timeout|recover|stale|stuck|reset.*processing)"
+    message: >
+      OTC-CRON-003: Status set to "processing" without visible timeout recovery.
+      If this job crashes mid-execution, items will be stuck in "processing" forever.
+      Add a timeout recovery mechanism or cleanup job.
+    severity: WARNING
+    languages: [typescript, javascript]
+    metadata:
+      category: reliability
+      otc-pattern: CRON-003
