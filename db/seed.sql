@@ -73,6 +73,27 @@ CREATE INDEX idx_models_status ON models(status);
 
 -- YOUR SQL GOES BELOW THIS LINE
 
+CREATE TABLE deployments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  model_id UUID NOT NULL,
+  CONSTRAINT fk_deployments_model_id FOREIGN KEY (model_id)
+    REFERENCES models(id) ON DELETE CASCADE,
+  environment VARCHAR(20) NOT NULL DEFAULT 'development'
+    CHECK (environment IN ('development', 'staging', 'production')),
+  deployed_by UUID NOT NULL,
+  CONSTRAINT fk_deployments_deployed_by FOREIGN KEY (deployed_by)
+    REFERENCES users(id) ON DELETE CASCADE,
+  deployed_at TIMESTAMPTZ,
+  status VARCHAR(20) NOT NULL DEFAULT 'active'
+    CHECK (status IN ('active', 'inactive', 'failed')),
+  notes TEXT,
+  provider_id UUID NOT NULL,
+  context_window INTEGER,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  CONSTRAINT uq_deployments_model_id_environment UNIQUE (model_id, environment)
+);
+CREATE INDEX idx_deployments_model_id ON deployments(model_id);
+CREATE INDEX idx_deployments_deployed_by ON deployments(deployed_by);
 
 
 -- ============================================================================
@@ -87,3 +108,9 @@ INSERT INTO providers (id, name, website) VALUES
   ('c3d4e5f6-a7b8-9012-cdef-123456789012', 'Anthropic', 'https://anthropic.com'),
   ('d4e5f6a7-b8c9-0123-defa-234567890123', 'OpenAI', 'https://openai.com'),
   ('e5f6a7b8-c9d0-1234-efab-345678901234', 'Google', 'https://ai.google');
+
+INSERT INTO models ( name, model_id, provider_id, context_window, status, notes, added_by, created_at)
+VALUES
+('Claude Opus 4.6', 'claude-opus-4-6', 'c3d4e5f6-a7b8-9012-cdef-123456789012', 1000, 'evaluating', 'This is from Anthropic', 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',  '2026-03-21'),
+('GPT 5.1 Codex', 'openai/gpt-5.1-codex', 'd4e5f6a7-b8c9-0123-defa-234567890123', 1000, 'approved', 'This is from OpenAI', 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', '2026-03-20'),
+('Gemini 3.1 Pro Preview', 'gemini-3.1-pro-preview', 'e5f6a7b8-c9d0-1234-efab-345678901234', 1000, 'deprecated', 'This is from Google', 'b2c3d4e5-f6a7-8901-bcde-f12345678901', '2026-03-19');

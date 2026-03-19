@@ -1,9 +1,9 @@
-import { getUserId } from '@/lib/auth';
-import { query } from '@/lib/db';
-import { ModelTable } from '@/components/model-table';
-import { ModelForm } from '@/components/model-form';
-import { EmptyState } from '@/components/empty-state';
-import type { ModelWithProvider, Provider } from '@/lib/types';
+import { getUserId } from "@/lib/auth";
+import { query } from "@/lib/db";
+import { ModelTable } from "@/components/model-table";
+import { ModelForm } from "@/components/model-form";
+import { EmptyState } from "@/components/empty-state";
+import type { ModelWithProvider, Provider } from "@/lib/types";
 
 export default async function DashboardPage() {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- used in your query implementation
@@ -25,10 +25,16 @@ export default async function DashboardPage() {
   // DO NOT use AI tools. Your screen recording will be reviewed.
   // ============================================================
 
-  const models: ModelWithProvider[] = []; // TODO: Replace with your query
+  // Check User if authenticated
+  if (!userId) return { error: "User not Authorized" };
+
+  const models: ModelWithProvider[] = await query(
+    "SELECT models.*, providers.name as provider_name , providers.website as provider_website FROM models JOIN providers ON models.provider_id = providers.id WHERE added_by = $1 ORDER BY CASE status WHEN 'evaluating' THEN 1 WHEN 'approved' THEN 2 WHEN 'deprecated' THEN 3 ELSE 4 END, created_at DESC",
+    [userId],
+  );
 
   const providers = await query<Provider>(
-    'SELECT id, name, website FROM providers ORDER BY name',
+    "SELECT id, name, website FROM providers ORDER BY name",
   );
 
   return (
@@ -42,11 +48,7 @@ export default async function DashboardPage() {
 
       <ModelForm providers={providers} />
 
-      {models.length === 0 ? (
-        <EmptyState />
-      ) : (
-        <ModelTable models={models} />
-      )}
+      {models.length === 0 ? <EmptyState /> : <ModelTable models={models} />}
     </div>
   );
 }

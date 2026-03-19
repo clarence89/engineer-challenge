@@ -32,6 +32,20 @@ import type { Model } from '@/lib/types';
 export async function addModel(
   formData: FormData,
 ): Promise<{ success: true } | { error: string }> {
+  // Check User Authentication
+  const user_id = await getUserId()
+  if (!user_id) return { error: "User is not Authenticated"}
+
+  const validated_data = addModelSchema.safeParse(Object.fromEntries(formData))
+  if (!validated_data.success) return { error: JSON.stringify(validated_data.error.errors.map((e)=> e.message).join(", "))}
+
+  const data_for_insert = {...validated_data, added_by: user_id}
+  const inserted_data = await query("INSERT INTO models (name, model_id, provider_id, context_window, status, notes ,added_by) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *",
+    Object.values(data_for_insert)
+  );
+  // Check if there is data
+  if (!inserted_data) return { error: "The Data has failed to save. Please Try again"}
+  revalidatePath("/dashboard")
   // TODO: Your implementation here
-  return { error: 'Not implemented' };
+  return { success: true };
 }
